@@ -20,25 +20,6 @@ resource "yandex_vpc_subnet" "subnet2" {
   v4_cidr_blocks = var.vpc_subnet.subnet2.cidr
 }
 
-# Сервисный аккаунт для ВМ
-resource "yandex_iam_service_account" "vm_sa" {
-  name        = "${local.name_prefix}-vm-sa"
-  description = "Сервисный аккаунт для управления ВМ"
-}
-
-# Выдача роли для сервисного аккаунта управления группой ВМ
-resource "yandex_resourcemanager_folder_iam_member" "sa_editor" {
-  folder_id = var.folder_id
-  role      = "editor"
-  member    = "serviceAccount:${yandex_iam_service_account.vm_sa.id}"
-}
-
-resource "yandex_resourcemanager_folder_iam_member" "sa_vpc_user" {
-  folder_id = var.folder_id
-  role      = "vpc.user"
-  member    = "serviceAccount:${yandex_iam_service_account.vm_sa.id}"
-}
-
 # Создание cloud-init.yml
 data "template_file" "cloudinit" {
  template = file("${path.module}/cloud-init.yml")
@@ -60,7 +41,6 @@ resource "yandex_compute_instance" "master" {
   folder_id          = var.folder_id
   platform_id        = var.master_nodes.platform_id
   zone               = var.vpc_subnet.subnet1.zone
-  service_account_id = "${yandex_iam_service_account.vm_sa.id}"
   labels             = merge(local.resource_tags, {
     role = "master"
     node = "${var.master_nodes.name_prefix}-${count.index + 1}"
@@ -117,7 +97,6 @@ resource "yandex_compute_instance" "worker" {
   folder_id          = var.folder_id
   platform_id        = var.worker_nodes.platform_id
   zone               = var.vpc_subnet.subnet2.zone
-  service_account_id = "${yandex_iam_service_account.vm_sa.id}"
   labels             = merge(local.resource_tags, {
     role = "worker"
     node = "${var.worker_nodes.name_prefix}-${count.index + 1}"

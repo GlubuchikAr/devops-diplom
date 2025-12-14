@@ -4,7 +4,7 @@ terraform {
       s3 = "https://storage.yandexcloud.net"
     }
     bucket     = "glubuchik-diplom"
-    key        = "2/terraform.tfstate"
+    key        = "diplom/terraform.tfstate"
     region     = "ru-central1"
 
     skip_region_validation      = true
@@ -45,7 +45,7 @@ provider "yandex" {
   cloud_id                  = var.cloud_id
   folder_id                 = var.folder_id
   zone                      = var.default_zone
-  service_account_key_file  = file("~/.authorized_key_admin.json")
+  service_account_key_file  = file("~/.sa-diplom-key1.json")
 }
 
 # provider "helm" {

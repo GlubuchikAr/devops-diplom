@@ -5,10 +5,28 @@ resource "yandex_iam_service_account" "service" {
   description   = "Service account"
 }
 
-# Назначение роли сервисному аккаунту
-resource "yandex_resourcemanager_folder_iam_member" "service-editor" {
+# Назначение минимально необходимых ролей
+resource "yandex_resourcemanager_folder_iam_member" "vpc-admin" {
   folder_id = var.folder_id
-  role      = "editor"
+  role      = "vpc.admin"
+  member    = "serviceAccount:${yandex_iam_service_account.service.id}"
+}
+
+resource "yandex_resourcemanager_folder_iam_member" "compute-admin" {
+  folder_id = var.folder_id
+  role      = "compute.admin"
+  member    = "serviceAccount:${yandex_iam_service_account.service.id}"
+}
+
+resource "yandex_resourcemanager_folder_iam_member" "storage-admin" {
+  folder_id = var.folder_id
+  role      = "storage.admin"
+  member    = "serviceAccount:${yandex_iam_service_account.service.id}"
+}
+
+resource "yandex_resourcemanager_folder_iam_member" "viewer" {
+  folder_id = var.folder_id
+  role      = "viewer" # Для просмотра образов (yandex_compute_image)
   member    = "serviceAccount:${yandex_iam_service_account.service.id}"
 }
 
@@ -31,11 +49,32 @@ resource "yandex_storage_bucket" "tf-bucket" {
 
   force_destroy = true
 
+# Создание backend.conf для доступа к S3 в основном проэкте
 provisioner "local-exec" {
   command = "echo 'access_key = \"${yandex_iam_service_account_static_access_key.service-keys.access_key}\"' > ../02-Deployment/backend.conf"
 }
-
 provisioner "local-exec" {
   command = "echo 'secret_key = \"${yandex_iam_service_account_static_access_key.service-keys.secret_key}\"' >> ../02-Deployment/backend.conf"
 }
+}
+
+# Создание Авторизованного ключа сервисного аккаунта для использования в основном проэкте
+resource "yandex_iam_service_account_key" "sa-auth-key" {
+  service_account_id = yandex_iam_service_account.service.id
+  description        = "Key for provider auth"
+  key_algorithm      = "RSA_4096"
+}
+resource "local_file" "sa-key-file" {
+  filename = pathexpand("~/.sa-diplom-key.json")
+  content  = yandex_iam_service_account_key.sa-auth-key.private_key
+  file_permission = "0600"
+}
+
+resource "local_file" "sa-key-json" {
+  filename = pathexpand("~/.sa-diplom-key1.json")
+  content = jsonencode({
+    id                 = yandex_iam_service_account_key.sa-auth-key.id
+    service_account_id = yandex_iam_service_account_key.sa-auth-key.service_account_id
+    private_key        = yandex_iam_service_account_key.sa-auth-key.private_key
+  })
 }
