@@ -64,14 +64,9 @@ resource "yandex_iam_service_account_key" "sa-auth-key" {
   description        = "Key for provider auth"
   key_algorithm      = "RSA_4096"
 }
-resource "local_file" "sa-key-file" {
-  filename = pathexpand("~/.sa-diplom-key.json")
-  content  = yandex_iam_service_account_key.sa-auth-key.private_key
-  file_permission = "0600"
-}
 
 resource "local_file" "sa-key-json" {
-  filename = pathexpand("~/.sa-diplom-key1.json")
+  filename = pathexpand("~/.sa-diplom-key.json")
   content = jsonencode({
     id                 = yandex_iam_service_account_key.sa-auth-key.id
     service_account_id = yandex_iam_service_account_key.sa-auth-key.service_account_id

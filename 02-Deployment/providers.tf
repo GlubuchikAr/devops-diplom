@@ -45,7 +45,7 @@ provider "yandex" {
   cloud_id                  = var.cloud_id
   folder_id                 = var.folder_id
   zone                      = var.default_zone
-  service_account_key_file  = file("~/.sa-diplom-key1.json")
+  service_account_key_file  = file("~/.sa-diplom-key.json")
 }
 
 # provider "helm" {
