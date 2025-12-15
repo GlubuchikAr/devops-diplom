@@ -51,10 +51,10 @@ resource "yandex_storage_bucket" "tf-bucket" {
 
 # Создание backend.conf для доступа к S3 в основном проэкте
 provisioner "local-exec" {
-  command = "echo 'access_key = \"${yandex_iam_service_account_static_access_key.service-keys.access_key}\"' > ../02-Deployment/backend.conf"
+  command = "echo 'access_key = \"${yandex_iam_service_account_static_access_key.service-keys.access_key}\"' > ../backend.conf"
 }
 provisioner "local-exec" {
-  command = "echo 'secret_key = \"${yandex_iam_service_account_static_access_key.service-keys.secret_key}\"' >> ../02-Deployment/backend.conf"
+  command = "echo 'secret_key = \"${yandex_iam_service_account_static_access_key.service-keys.secret_key}\"' >> ../backend.conf"
 }
 }
 

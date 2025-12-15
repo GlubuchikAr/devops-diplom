@@ -1,6 +1,6 @@
-locals {  
+locals {
   # Общие настройки
-  kubeconfig_path = var.kubeconfig_path != "" ? var.kubeconfig_path : "${path.module}/../kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf"
+  kubeconfig_path = var.kubeconfig_path != "" ? var.kubeconfig_path : "${path.module}/../02-Claster/modules/kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf"
   
   # Определяем, нужно ли использовать main или конкретный тег
   use_main_branch = var.diplom_tag == "" || var.diplom_tag == "latest"
@@ -33,57 +33,3 @@ locals {
     "image: aglubuchik/diplom-application:${var.diplom_tag}"
   )
 }
-
-# locals {
-#   # Prometheus Stack значения
-#   prometheus_values = {
-#     grafana = {
-#       adminPassword = var.grafana_admin_password
-#     }
-#   }
-  
-#   # Ingress Nginx значения
-#   ingress_nginx_values = {
-#     controller = {
-#       service = {
-#         nodePorts = {
-#           http = var.ingress_http_nodeport
-#         }
-#       }
-#       replicaCount = 2
-#     }
-#   }
-  
-#   # GitLab Runner значения
-#   gitlab_runner_values = {
-#     gitlabUrl = var.gitlab_url
-#     runnerRegistrationToken = var.gitlab_runner_token
-#     revisionHistoryLimit = 3
-    
-#     rbac = {
-#       create = true
-#       rules = [
-#         {
-#           apiGroups = [""]
-#           resources = ["pods", "secrets", "configmaps"]
-#           verbs     = ["get", "list", "watch", "create", "patch", "delete", "update"]
-#         },
-#         {
-#           apiGroups = [""]
-#           resources = ["pods/exec", "pods/attach"]
-#           verbs     = ["create", "patch", "delete"]
-#         },
-#         {
-#           apiGroups = ["apps"]
-#           resources = ["deployments"]
-#           verbs     = ["get", "list", "watch", "create", "update", "patch", "delete"]
-#         }
-#       ]
-#       clusterWideAccess = false
-#       podSecurityPolicy = {
-#         enabled      = false
-#         resourceNames = ["gitlab-runner"]
-#       }
-#     }
-#   }
-# }

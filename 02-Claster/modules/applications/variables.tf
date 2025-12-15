@@ -53,21 +53,3 @@ variable "kubeconfig_path" {
   default     = ""
   description = "Файл конфигурации для доступа к K8S кластера"
 }
-
-# variable "kube_prometheus_stack_version" {
-#   type        = string
-#   default     = "80.2.0"
-#   description = "Версия kube_prometheus_stack"
-# }
-
-# variable "ingress-nginx_version" {
-#   type        = string
-#   default     = "4.14.1"
-#   description = "Версия ingress-nginx"
-# }
-
-# variable "gitlab-runner_version" {
-#   type        = string
-#   default     = "0.83.3"
-#   description = "Версия gitlab-runner"
-# }

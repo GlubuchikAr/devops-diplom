@@ -159,17 +159,17 @@
    - compute.admin - для создания и управления ВМ
    - viewer - для просмотра ресурсов
 - Создает S3 бакет для хранения бэкенда основного манифеста
-- Создает файл backend.conf в директории основного манифеста [02-Deployment](02-Deployment/)
+- Создает файл backend.conf в директории диплома.
 - Создает ключ авторизации Сервисного аккаунта в домашней директории, для его использования в основном манифесте 
 
 Для работы манифеста нужно задать переменные  `cloud_id` и `folder_id`, и указать как подключаться к облаку в `provider "yandex"` (service_account_key_file или token)
 
-С помощью переменной `bucket_name` можно изменить название S3 хранилища (нужно будет поменять название хранилища в [02-Deployment/providers.tf](02-Deployment/providers.tf))
+С помощью переменной `bucket_name` можно изменить название S3 хранилища (нужно будет поменять название хранилища в [02-Claster/providers.tf](02-Claster/providers.tf))
 ## Разворот приложения 
 
-Создана отдельная директория для основного проэкта [02-Deployment](02-Deployment/)
+Создана отдельная директория для основного проэкта [02-Claster](02-Claster/)
 
-Подключение к S3 настроено в [02-Deployment/providers.tf](02-Deployment/providers.tf)
+Подключение к S3 настроено в [02-Claster/providers.tf](02-Claster/providers.tf)
 ```
   backend "s3" {
     endpoints = {
@@ -196,20 +196,20 @@ provider "yandex" {
 ```
 Запускать terraform init нужно с указанием файла конфигурации для бэкенда
 ```
-terraform init -backend-config=backend.conf
+terraform init -backend-config=../backend.conf
 ```
 Для работы манифеста нужно задать переменные `cloud_id`, `folder_id`, `grafana_admin_password`(пароль для входа в графану), `gitlab_runner_token`(токен для подключения ранера к Gitlab)
 
 
 Приложение разделил на 3 модуля:
 
-- [compute](02-Deployment/modules/compute) - Модуль подготавливает сеть и ВМ для разорота K8S
-- [kubernetes](02-Deployment/modules/kubernetes) - Разворачивает на подготовленных модулем [compute](02-Deployment/modules/compute) виртуальных машинах K8S кластер
-- [applications](02-Deployment/modules/applications) - Разворачивает в K8S кластере приложения (мониторинг, раннер для GitLab, приложение диплома)
+- [compute](02-Claster/modules/compute) - Модуль подготавливает сеть и ВМ для разорота K8S
+- [kubernetes](02-Claster/modules/kubernetes) - Разворачивает на подготовленных модулем [compute](02-Claster/modules/compute) виртуальных машинах K8S кластер
+- [applications](02-Claster/modules/applications) - Разворачивает в K8S кластере приложения (мониторинг, раннер для GitLab, приложение диплома)
 
 
 
-### Модуль [compute](02-Deployment/modules/compute)
+### Модуль [compute](02-Claster/modules/compute)
 
 - Создает сеть
 - Создает 2 подсети, можно изменить с помощью переменной
@@ -303,7 +303,7 @@ variable "worker_nodes" {
   description = "Конфигурация воркер-нод"
 }
 ```
-- Создает инвентарь [hosts.yaml](02-Deployment/modules/compute/inventory/hosts.yaml) для kubespray который будет использовать модуль [kubernetes](02-Deployment/modules/kubernetes)
+- Создает инвентарь [hosts.yaml](02-Claster/modules/compute/inventory/hosts.yaml) для kubespray который будет использовать модуль [kubernetes](02-Claster/modules/kubernetes)
 - Если переменная update_hosts = true, внесет изменения в /etc/hosts (требуется запуск от SUDO или ввод пароля во время выполнения манифеста)
 добавит внешний IP мастера для хостов указанных в переменных 
 ```
@@ -363,14 +363,14 @@ variable "ssh_username" {
 }
 ```
 
-Можно настроить [cloud-init.yml](02-Deployment/modules/compute/cloud-init.yml) для изменения настроек поднимаемых ВМ.
+Можно настроить [cloud-init.yml](02-Claster/modules/compute/cloud-init.yml) для изменения настроек поднимаемых ВМ.
 
-### Модуль [kubernetes](02-Deployment/modules/kubernetes)
+### Модуль [kubernetes](02-Claster/modules/kubernetes)
 
 - Устанавливает python3 на машину, с которой запускается Terraform.
-- Создает виртуальное окружение в [kubernetes/venv](02-Deployment/modules/kubernetes/venv)
+- Создает виртуальное окружение в [kubernetes/venv](02-Claster/modules/kubernetes/venv)
 - Устанавливает через pip3 ansible
-- Клонирует https://github.com/kubernetes-sigs/kubespray.git в [kubernetes/kubespray](02-Deployment/modules/kubernetes/kubespray)
+- Клонирует https://github.com/kubernetes-sigs/kubespray.git в [kubernetes/kubespray](02-Claster/modules/kubernetes/kubespray)
 - Устанавливает зависимости kubespray
 - Переносит указанный в переменной инвентарь в kubespray/inventory/mycluster/hosts.yaml
 ```
@@ -391,9 +391,9 @@ ansible-playbook -i inventory/mycluster/hosts.yaml \
   --flush-cache
 ```
 
-### Модуль [applications](02-Deployment/modules/applications)
+### Модуль [applications](02-Claster/modules/applications)
 
-(хотел сделать с помощью провайдеров, но пока так и не смог заставить провайдеры нормально брать конфиг для доступа к кластеру созданный модулем [kubernetes](02-Deployment/modules/kubernetes))
+(хотел сделать с помощью провайдеров, но пока так и не смог заставить провайдеры нормально брать конфиг для доступа к кластеру созданный модулем [kubernetes](02-Claster/modules/kubernetes))
 
 - Устанавливает через helm prometheus-community/kube-prometheus-stack.
 Можно указать пароль для доступа к Grafana
@@ -423,10 +423,10 @@ variable "gitlab_runner_token" {
   description = "GitLab Runner registration token"
 }
 ```
-Можно сконфигурировать Runner с помощью файла [runner/values.yaml](02-Deployment/modules/applications/runner/values.yaml)
+Можно сконфигурировать Runner с помощью файла [runner/values.yaml](02-Claster/modules/applications/runner/values.yaml)
 
 - Скачивает из GitLab манифест диплома в зависимости от указанного тега
-и сохраняет его в [applications/diplom.yaml](02-Deployment/modules/applications/diplom.yaml)
+и сохраняет его в [applications/diplom.yaml](02-Claster/modules/applications/diplom.yaml)
 (если тег не указан или равен latest, скачивает и запускает манифест из ветки main, если тег указан скачивается манифест из ветки с указанным тегом и использует для поднятия приложения образ с указанным тегом)
 - Устанавливает приложение из diplom.yaml
 
@@ -574,7 +574,7 @@ spec:
 В созданом [проэкте](https://gitlab.com/artemglubuchik-group/artemglubuchik-project)
 
 - Создаю ранер для GitLab (Settings -> CI/CD -> Runners) (Без него нужно подтвердить учетную запись, а это нельзя сделать без иностранного телефона и карты).
-   - Токен ранера сохраняю в переменную `gitlab_runner_token` `02-Deployment/personal.auto.tfvars`
+   - Токен ранера сохраняю в переменную `gitlab_runner_token` `02-Claster/personal.auto.tfvars`
 ![](img/Runner.png)
 
 - Создаю переменные для CI/CD (Settings -> CI/CD -> Variables)
@@ -582,7 +582,7 @@ spec:
    - DOCKER_USER - пользователь для доступа к DOCKER_REGISTRY, чтобы загрудать туда образы
    - DOCKER_PASSWORD - пароль пользователя для доступа к DOCKER_REGISTRY
    - IMAGE_NAME - название образа для диплома (diplom-application)
-   - KUBE_CONFIG - конфигурация для подключения к кластеру K8S созданая с помощью модуля [kubernetes](02-Deployment/modules/kubernetes) (нужно преобразовать конфиг 02-Deployment/modules/kubernetes/kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf в base64 и указать его в Value без пробелов и переноса строк)
+   - KUBE_CONFIG - конфигурация для подключения к кластеру K8S созданая с помощью модуля [kubernetes](02-Claster/modules/kubernetes) (нужно преобразовать конфиг 02-Claster/modules/kubernetes/kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf в base64 и указать его в Value без пробелов и переноса строк)
 ![](img/Variables.png)
 - Cоздаю [.gitlab-ci.yml](https://gitlab.com/DemoniumBlack/diplom-test-site/-/blob/main/.gitlab-ci.yml?ref_type=heads)
 ```

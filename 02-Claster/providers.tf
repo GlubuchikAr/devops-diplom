@@ -4,7 +4,7 @@ terraform {
       s3 = "https://storage.yandexcloud.net"
     }
     bucket     = "glubuchik-diplom"
-    key        = "diplom/terraform.tfstate"
+    key        = "claster/terraform.tfstate"
     region     = "ru-central1"
 
     skip_region_validation      = true
@@ -25,18 +25,6 @@ terraform {
       source = "hashicorp/template"
       version = "2.2.0"
     }
-    # helm = {
-    #   source  = "hashicorp/helm"
-    #   version = "~> 2.0"
-    # }
-    # kubernetes = {
-    #   source  = "hashicorp/kubernetes"
-    #   version = "~> 2.0"
-    # }
-    # kubectl = {
-    #   source  = "gavinbunney/kubectl"
-    #   version = "~> 1.14"
-    # }
   }
   required_version = ">1.8.4"
 }
@@ -47,17 +35,3 @@ provider "yandex" {
   zone                      = var.default_zone
   service_account_key_file  = file("~/.sa-diplom-key.json")
 }
-
-# provider "helm" {
-#   kubernetes {
-#     config_path = "${path.module}/../kubespray/inventory/mycluster/artifacts/admin.conf"
-#   }
-# }
-
-# provider "kubernetes" {
-#   config_path = "${path.module}/../kubespray/inventory/mycluster/artifacts/admin.conf"
-# }
-
-# provider "kubectl" {
-#   config_path = "${path.module}/../kubespray/inventory/mycluster/artifacts/admin.conf"
-# }

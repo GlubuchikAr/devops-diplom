@@ -1,6 +1,6 @@
 ### Разворачивает в K8S кластере приложения (мониторинг, раннер для GitLab, приложение диплома)
 
-(хотел сделать с помощью провайдеров, но пока так и не смог заставить провайдеры нормально брать конфиг для доступа к кластеру созданный модулем [kubernetes](02-Deployment/modules/kubernetes))
+(хотел сделать с помощью провайдеров, но похоже провайдеры не хотят работать с конфигом созданным во время выполнения манифеста [kubernetes](02-Claster/modules/kubernetes))
 
 - Устанавливает через helm prometheus-community/kube-prometheus-stack.
 Можно указать пароль для доступа к Grafana
@@ -30,9 +30,9 @@ variable "gitlab_runner_token" {
   description = "GitLab Runner registration token"
 }
 ```
-Можно сконфигурировать Runner с помощью файла [runner/values.yaml](02-Deployment/modules/applications/runner/values.yaml)
+Можно сконфигурировать Runner с помощью файла [runner/values.yaml](02-Claster/modules/applications/runner/values.yaml)
 
 - Скачивает из GitLab манифест диплома в зависимости от указанного тега
-и сохраняет его в [applications/diplom.yaml](02-Deployment/modules/applications/diplom.yaml)
+и сохраняет его в [applications/diplom.yaml](02-Claster/modules/applications/diplom.yaml)
 (если тег не указан или равен latest, скачивает и запускает манифест из ветки main, если тег указан скачивается манифест из ветки с указанным тегом и использует для поднятия приложения образ с указанным тегом)
 - Устанавливает приложение из diplom.yaml

@@ -1,0 +1,30 @@
+controller:
+  replicaCount: 2
+  service:
+    nodePorts:
+      http: 30080
+      https: 30471
+  
+  # Отключаем проблемные компоненты
+  admissionWebhooks:
+    enabled: false
+    patch:
+      enabled: false
+  
+  # Отключаем пробы до устранения проблемы
+  readinessProbe:
+    enabled: false
+  livenessProbe:
+    enabled: false
+  
+  # Убираем аргументы веб-хуков
+  extraArgs:
+    enable-ssl-passthrough: false
+    # Убираем: --validating-webhook=:8443
+    # Убираем: --validating-webhook-certificate=/usr/local/certificates/cert
+    # Убираем: --validating-webhook-key=/usr/local/certificates/key
+
+# Отключаем создание сертификатов
+admissionWebhooks:
+  enabled: false
+  certManager: false

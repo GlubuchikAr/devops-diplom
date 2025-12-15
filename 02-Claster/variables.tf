@@ -220,6 +220,11 @@ variable "hosts_path" {
   description = "Путь к файлу hosts.yaml"
 }
 
+
+
+
+
+
 variable "gitlab_runner_token" {
   type        = string
   description = "GitLab Runner registration token"
