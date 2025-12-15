@@ -37,260 +37,13 @@
 Предварительная подготовка к установке и запуску Kubernetes кластера.
 
 1. Создайте сервисный аккаунт, который будет в дальнейшем использоваться Terraform для работы с инфраструктурой с необходимыми и достаточными правами. Не стоит использовать права суперпользователя
-
 2. Подготовьте [backend](https://developer.hashicorp.com/terraform/language/backend) для Terraform:  
    а. Рекомендуемый вариант: S3 bucket в созданном ЯО аккаунте(создание бакета через TF)
    б. Альтернативный вариант:  [Terraform Cloud](https://app.terraform.io/)
-
-#### Выполнено в [01-terraform/main.tf](01-terraform/main.tf)
-```
-# Создание сервисного аккаунта для Terraform
-resource "yandex_iam_service_account" "service" {
-  folder_id     = var.folder_id
-  name          = var.account_name
-  description   = "Service account"
-}
-
-# Назначение роли сервисному аккаунту
-resource "yandex_resourcemanager_folder_iam_member" "service-editor" {
-  folder_id = var.folder_id
-  role      = "editor"
-  member    = "serviceAccount:${yandex_iam_service_account.service.id}"
-}
-
-# Создание статического ключа доступа
-resource "yandex_iam_service_account_static_access_key" "service-keys" {
-  service_account_id = yandex_iam_service_account.service.id
-  description        = "Static access keys"
-}
-```
-
-#### Выполнено в [01-terraform/main.tf](01-terraform/main.tf)
-```
-# Создание бакета с использованием ключа
-resource "yandex_storage_bucket" "tf-bucket" {
-  access_key = yandex_iam_service_account_static_access_key.service-keys.access_key
-  secret_key = yandex_iam_service_account_static_access_key.service-keys.secret_key
-  bucket     = var.bucket_name
-  folder_id  = var.folder_id
-  anonymous_access_flags {
-    read = false
-    list = false
-  }
-
-  force_destroy = true
-
-provisioner "local-exec" {
-  command = "echo 'access_key = \"${yandex_iam_service_account_static_access_key.service-keys.access_key}\"' > ../02-kubernetes/terraform/backend.conf"
-}
-
-provisioner "local-exec" {
-  command = "echo 'secret_key = \"${yandex_iam_service_account_static_access_key.service-keys.secret_key}\"' >> ../02-kubernetes/terraform/backend.conf"
-}
-}
-```
-access_key и secret_key будут записаны в /02-kubernetes/terraform/backend.conf, после чего будут использоваться для подключентия к backend
-
 3. Создайте конфигурацию Terrafrom, используя созданный бакет ранее как бекенд для хранения стейт файла. Конфигурации Terraform для создания сервисного аккаунта и бакета и основной инфраструктуры следует сохранить в разных папках.
-
-#### Выполнено в [02-kubernetes/terraform/providers.tf](02-kubernetes/terraform/providers.tf)
-```
-terraform {
-  backend "s3" {
-    endpoints = {
-      s3 = "https://storage.yandexcloud.net"
-    }
-    bucket     = "glubuchik-diplom"
-    key        = "terraform.tfstate"
-    region     = "ru-central1"
-
-    skip_region_validation      = true
-    skip_credentials_validation = true
-    skip_requesting_account_id  = true
-    skip_s3_checksum            = true
-  }
-  required_providers {
-    yandex = {
-      source = "yandex-cloud/yandex"
-      version = "0.169"
-    }
-  }
-  required_version = ">1.8.4"
-}
-```
-Для того чтобы подключится к нужно указать backend-config
-```
-terraform init -backend-config=backend.conf
-```
 4. Создайте VPC с подсетями в разных зонах доступности.
-#### Выполнено в [02-kubernetes/terraform/main.tf](02-kubernetes/terraform/terraform/main.tf)
-```
-# Создание сети
-resource "yandex_vpc_network" "develop" {
-  name = var.vpc_name
-}
-
-# Создание подсетей в разных зонах
-resource "yandex_vpc_subnet" "subnet1" {
-  name           = var.vpc_subnet.subnet1.name
-  zone           = var.vpc_subnet.subnet1.zone
-  network_id     = yandex_vpc_network.develop.id
-  v4_cidr_blocks = var.vpc_subnet.subnet1.cidr
-}
-
-resource "yandex_vpc_subnet" "subnet2" {
-  name           = var.vpc_subnet.subnet2.name
-  zone           = var.vpc_subnet.subnet2.zone
-  network_id     = yandex_vpc_network.develop.id
-  v4_cidr_blocks = var.vpc_subnet.subnet2.cidr
-}
-```
-
 5. Убедитесь, что теперь вы можете выполнить команды `terraform destroy` и `terraform apply` без дополнительных ручных действий.
-```
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud-main/02-kubernetes$ terraform apply
-
-Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
-  + create
-
-Terraform will perform the following actions:
-
-  # yandex_vpc_network.develop will be created
-  + resource "yandex_vpc_network" "develop" {
-      + created_at                = (known after apply)
-      + default_security_group_id = (known after apply)
-      + folder_id                 = (known after apply)
-      + id                        = (known after apply)
-      + labels                    = (known after apply)
-      + name                      = "develop"
-      + subnet_ids                = (known after apply)
-    }
-
-  # yandex_vpc_subnet.subnet1 will be created
-  + resource "yandex_vpc_subnet" "subnet1" {
-      + created_at     = (known after apply)
-      + folder_id      = (known after apply)
-      + id             = (known after apply)
-      + labels         = (known after apply)
-      + name           = "subnet1"
-      + network_id     = (known after apply)
-      + v4_cidr_blocks = [
-          + "192.168.10.0/24",
-        ]
-      + v6_cidr_blocks = (known after apply)
-      + zone           = "ru-central1-a"
-    }
-
-  # yandex_vpc_subnet.subnet2 will be created
-  + resource "yandex_vpc_subnet" "subnet2" {
-      + created_at     = (known after apply)
-      + folder_id      = (known after apply)
-      + id             = (known after apply)
-      + labels         = (known after apply)
-      + name           = "subnet2"
-      + network_id     = (known after apply)
-      + v4_cidr_blocks = [
-          + "192.168.20.0/24",
-        ]
-      + v6_cidr_blocks = (known after apply)
-      + zone           = "ru-central1-b"
-    }
-
-Plan: 3 to add, 0 to change, 0 to destroy.
-
-Do you want to perform these actions?
-  Terraform will perform the actions described above.
-  Only 'yes' will be accepted to approve.
-
-  Enter a value: yes
-
-yandex_vpc_network.develop: Creating...
-yandex_vpc_network.develop: Creation complete after 4s [id=enpq28e14fcadlojgav0]
-yandex_vpc_subnet.subnet1: Creating...
-yandex_vpc_subnet.subnet2: Creating...
-yandex_vpc_subnet.subnet1: Creation complete after 1s [id=e9bsqj557554m1l9vcrf]
-yandex_vpc_subnet.subnet2: Creation complete after 1s [id=e2lq5qhokj1kr03dsie3]
-
-Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
-```
-В s3 создался terraform.tfstate
-![](img/d-1.png)
-
-```
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud-main/02-kubernetes$ terraform destroy
-yandex_vpc_network.develop: Refreshing state... [id=enpq28e14fcadlojgav0]
-yandex_vpc_subnet.subnet2: Refreshing state... [id=e2lq5qhokj1kr03dsie3]
-yandex_vpc_subnet.subnet1: Refreshing state... [id=e9bsqj557554m1l9vcrf]
-
-Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
-  - destroy
-
-Terraform will perform the following actions:
-
-  # yandex_vpc_network.develop will be destroyed
-  - resource "yandex_vpc_network" "develop" {
-      - created_at                = "2025-11-29T08:30:41Z" -> null
-      - default_security_group_id = "enpco77rrhc4uth4fe4k" -> null
-      - folder_id                 = "b1gliq36v37iol484r5a" -> null
-      - id                        = "enpq28e14fcadlojgav0" -> null
-      - labels                    = {} -> null
-      - name                      = "develop" -> null
-      - subnet_ids                = [
-          - "e2lq5qhokj1kr03dsie3",
-          - "e9bsqj557554m1l9vcrf",
-        ] -> null
-        # (1 unchanged attribute hidden)
-    }
-
-  # yandex_vpc_subnet.subnet1 will be destroyed
-  - resource "yandex_vpc_subnet" "subnet1" {
-      - created_at     = "2025-11-29T08:30:45Z" -> null
-      - folder_id      = "b1gliq36v37iol484r5a" -> null
-      - id             = "e9bsqj557554m1l9vcrf" -> null
-      - labels         = {} -> null
-      - name           = "subnet1" -> null
-      - network_id     = "enpq28e14fcadlojgav0" -> null
-      - v4_cidr_blocks = [
-          - "192.168.10.0/24",
-        ] -> null
-      - v6_cidr_blocks = [] -> null
-      - zone           = "ru-central1-a" -> null
-        # (2 unchanged attributes hidden)
-    }
-
-  # yandex_vpc_subnet.subnet2 will be destroyed
-  - resource "yandex_vpc_subnet" "subnet2" {
-      - created_at     = "2025-11-29T08:30:45Z" -> null
-      - folder_id      = "b1gliq36v37iol484r5a" -> null
-      - id             = "e2lq5qhokj1kr03dsie3" -> null
-      - labels         = {} -> null
-      - name           = "subnet2" -> null
-      - network_id     = "enpq28e14fcadlojgav0" -> null
-      - v4_cidr_blocks = [
-          - "192.168.20.0/24",
-        ] -> null
-      - v6_cidr_blocks = [] -> null
-      - zone           = "ru-central1-b" -> null
-        # (2 unchanged attributes hidden)
-    }
-
-Plan: 0 to add, 0 to change, 3 to destroy.
-
-Do you really want to destroy all resources?
-  Terraform will destroy all your managed infrastructure, as shown above.
-  There is no undo. Only 'yes' will be accepted to confirm.
-
-  Enter a value: yes
-
-yandex_vpc_subnet.subnet2: Destroying... [id=e2lq5qhokj1kr03dsie3]
-yandex_vpc_subnet.subnet1: Destroying... [id=e9bsqj557554m1l9vcrf]
-yandex_vpc_subnet.subnet1: Destruction complete after 0s
-yandex_vpc_subnet.subnet2: Destruction complete after 1s
-yandex_vpc_network.develop: Destroying... [id=enpq28e14fcadlojgav0]
-yandex_vpc_network.develop: Destruction complete after 1s
-
-Destroy complete! Resources: 3 destroyed.
-```
+6. В случае использования [Terraform Cloud](https://app.terraform.io/) в качестве [backend](https://developer.hashicorp.com/terraform/language/backend) убедитесь, что применение изменений успешно проходит, используя web-интерфейс Terraform cloud.
 
 Ожидаемые результаты:
 
@@ -308,79 +61,10 @@ Destroy complete! Resources: 3 destroyed.
    а. При помощи Terraform подготовить как минимум 3 виртуальных машины Compute Cloud для создания Kubernetes-кластера. Тип виртуальной машины следует выбрать самостоятельно с учётом требовании к производительности и стоимости. Если в дальнейшем поймете, что необходимо сменить тип инстанса, используйте Terraform для внесения изменений.  
    б. Подготовить [ansible](https://www.ansible.com/) конфигурации, можно воспользоваться, например [Kubespray](https://kubernetes.io/docs/setup/production-environment/tools/kubespray/)  
    в. Задеплоить Kubernetes на подготовленные ранее инстансы, в случае нехватки каких-либо ресурсов вы всегда можете создать их при помощи Terraform.
-
-Скачиваю kubespray
-```
-git clone https://github.com/kubernetes-sigs/kubespray.git
-```
-Устанавливаю зависимости
-```
-pip3 install -r requirements.txt
-```
-Копирую пример
-```
-cp -rfp inventory/sample inventory/mycluster
-```
-В ./02-kubernetes/kubespray/inventory/sample/group_vars/k8s_cluster/k8s-cluster.yml прописываю, для формирования файла конфигурации Kubernetes
-```
-kubeconfig_localhost: true
-```
-Добавляю в (02-kubernetes/terraform/terraform/main.tf)[02-kubernetes/terraform/terraform/main.tf]
-```
-# Запуск kubespray для настройки K8S кластера
-resource "null_resource" "run_kubespray" {
-  depends_on = [
-    local_file.ansible_inventory
-  ]
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      cd ${path.module}/../kubespray && \
-      ansible-playbook -i inventory/mycluster/hosts.yaml \
-        -u ubuntu \
-        --become --become-user=root \
-        cluster.yml \
-        --flush-cache
-    EOT
-  }
-}
-```
-Экспортируем конфиг и проверяем
-```
-(kubespray) glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/02-kubernetes/terraform$ export KUBECONFIG=~/обучение/Netology/devops-diplom-yandexcloud/02-kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf
-
-(kubespray) glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/02-kubernetes/terraform$ kubectl cluster-info
-Kubernetes control plane is running at https://158.160.100.14:6443
-
-To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
-(kubespray) glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/02-kubernetes/terraform$ kubectl get nodes
-NAME       STATUS   ROLES           AGE   VERSION
-master-1   Ready    control-plane   23m   v1.34.2
-worker-1   Ready    <none>          22m   v1.34.2
-worker-2   Ready    <none>          22m   v1.34.2
-
-(kubespray) glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/02-kubernetes/terraform$ kubectl get pods --all-namespaces
-NAMESPACE     NAME                                       READY   STATUS    RESTARTS   AGE
-kube-system   calico-kube-controllers-568b875685-8hqjf   1/1     Running   0          22m
-kube-system   calico-node-qz8s9                          1/1     Running   0          23m
-kube-system   calico-node-vfsfc                          1/1     Running   0          23m
-kube-system   calico-node-zvfvx                          1/1     Running   0          23m
-kube-system   coredns-64b5cc5cbc-lxnx6                   1/1     Running   0          22m
-kube-system   coredns-64b5cc5cbc-wxfqt                   1/1     Running   0          22m
-kube-system   dns-autoscaler-5594cbb9c4-z8l4j            1/1     Running   0          22m
-kube-system   kube-apiserver-master-1                    1/1     Running   1          25m
-kube-system   kube-controller-manager-master-1           1/1     Running   2          25m
-kube-system   kube-proxy-nqgf9                           1/1     Running   0          24m
-kube-system   kube-proxy-nxf5d                           1/1     Running   0          24m
-kube-system   kube-proxy-v95j2                           1/1     Running   0          24m
-kube-system   kube-scheduler-master-1                    1/1     Running   1          25m
-kube-system   nginx-proxy-worker-1                       1/1     Running   0          24m
-kube-system   nginx-proxy-worker-2                       1/1     Running   0          24m
-kube-system   nodelocaldns-f6sm2                         1/1     Running   0          22m
-kube-system   nodelocaldns-rnjvf                         1/1     Running   0          22m
-kube-system   nodelocaldns-zvt9f                         1/1     Running   0          22m
-```
-
+2. Альтернативный вариант: воспользуйтесь сервисом [Yandex Managed Service for Kubernetes](https://cloud.yandex.ru/services/managed-kubernetes)  
+  а. С помощью terraform resource для [kubernetes](https://registry.terraform.io/providers/yandex-cloud/yandex/latest/docs/resources/kubernetes_cluster) создать **региональный** мастер kubernetes с размещением нод в разных 3 подсетях      
+  б. С помощью terraform resource для [kubernetes node group](https://registry.terraform.io/providers/yandex-cloud/yandex/latest/docs/resources/kubernetes_node_group)
+  
 Ожидаемый результат:
 
 1. Работоспособный Kubernetes кластер.
@@ -400,32 +84,6 @@ kube-system   nodelocaldns-zvt9f                         1/1     Running   0    
 2. Альтернативный вариант:  
    а. Используйте любой другой код, главное, чтобы был самостоятельно создан Dockerfile.
 
-Создаю репозиторий для тестового приложения https://github.com/GlubuchikAr/diplom-application
-Создаю dockerfile
-```
-FROM nginx:1.29.0
-RUN rm -rf /usr/share/nginx/html/*
-COPY html/ /usr/share/nginx/html/
-EXPOSE 80
-```
-Создаю вебсайт для демонстрации через nginx
-https://github.com/GlubuchikAr/diplom-application/blob/main/html/index.html
-
-Авторизуюсь на hub.docker.com
-```
-docker login
-```
-
-Создаю образ из dockerfile
-```
-docker build . -t aglubuchik/diplom-application:0.1
-```
-
-Загружаю на docker hud
-```
-docker push aglubuchik/diplom-application:0.1
-```
-Ссылка на реестр Docker Hub: https://hub.docker.com/repository/docker/aglubuchik/diplom-application/general
 Ожидаемый результат:
 
 1. Git репозиторий с тестовым приложением и Dockerfile.
@@ -440,120 +98,6 @@ docker push aglubuchik/diplom-application:0.1
 Цель:
 1. Задеплоить в кластер [prometheus](https://prometheus.io/), [grafana](https://grafana.com/), [alertmanager](https://github.com/prometheus/alertmanager), [экспортер](https://github.com/prometheus/node_exporter) основных метрик Kubernetes.
 2. Задеплоить тестовое приложение, например, [nginx](https://www.nginx.com/) сервер отдающий статическую страницу.
-```
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ mkdir helm-prometheus
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ helm show values prometheus-community/kube-prometheus-stack > helm-prometheus/values.yaml
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack --create-namespace -n monitoring -f helm-prometheus/values.yaml
-Release "monitoring" does not exist. Installing it now.
-NAME: monitoring
-LAST DEPLOYED: Tue Dec  2 21:26:15 2025
-NAMESPACE: monitoring
-STATUS: deployed
-REVISION: 1
-NOTES:
-kube-prometheus-stack has been installed. Check its status by running:
-  kubectl --namespace monitoring get pods -l "release=monitoring"
-
-Get Grafana 'admin' user password by running:
-
-  kubectl --namespace monitoring get secrets monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo
-
-Access Grafana local instance:
-
-  export POD_NAME=$(kubectl --namespace monitoring get pod -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=monitoring" -oname)
-  kubectl --namespace monitoring port-forward $POD_NAME 3000
-
-Get your grafana admin user password by running:
-
-  kubectl get secret --namespace monitoring -l app.kubernetes.io/component=admin-secret -o jsonpath="{.items[0].data.admin-password}" | base64 --decode ; echo
-
-
-Visit https://github.com/prometheus-operator/kube-prometheus for instructions on how to create & configure Alertmanager and Prometheus instances using the Operator.
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ kubectl --namespace monitoring get pods -l "release=monitoring"
-NAME                                                   READY   STATUS    RESTARTS   AGE
-monitoring-kube-prometheus-operator-6f9b658949-l6kjr   1/1     Running   0          20m
-monitoring-kube-state-metrics-5bd8b6b9cd-99txq         1/1     Running   0          20m
-monitoring-prometheus-node-exporter-82bt6              1/1     Running   0          20m
-monitoring-prometheus-node-exporter-9d2tf              1/1     Running   0          20m
-monitoring-prometheus-node-exporter-wtw7s              1/1     Running   0          20m
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ kubectl --namespace monitoring get secrets monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 -d ; echo
-4-o7blNI
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ kubectl --namespace monitoring port-forward $POD_NAME 3000
-error: TYPE/NAME and list of ports are required for port-forward
-See 'kubectl port-forward -h' for help and examples
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ export POD_NAME=$(kubectl --namespace monitoring get pod -l "app.kubernetes.io/name=grafana,app.kubernetes.io/instance=monitoring" -oname)
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ kubectl --namespace monitoring port-forward $POD_NAME 3000
-Forwarding from 127.0.0.1:3000 -> 3000
-Forwarding from [::1]:3000 -> 3000
-^Cglubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ kubectl -n monitoring get svc -o wide
-NAME                                      TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE   SELECTOR
-alertmanager-operated                     ClusterIP   None            <none>        9093/TCP,9094/TCP,9094/UDP   24m   app.kubernetes.io/name=alertmanager
-monitoring-grafana                        ClusterIP   10.233.63.94    <none>        80/TCP                       24m   app.kubernetes.io/instance=monitoring,app.kubernetes.io/name=grafana
-monitoring-kube-prometheus-alertmanager   ClusterIP   10.233.40.102   <none>        9093/TCP,8080/TCP            24m   alertmanager=monitoring-kube-prometheus-alertmanager,app.kubernetes.io/name=alertmanager
-monitoring-kube-prometheus-operator       ClusterIP   10.233.25.130   <none>        443/TCP                      24m   app=kube-prometheus-stack-operator,release=monitoring
-monitoring-kube-prometheus-prometheus     ClusterIP   10.233.13.206   <none>        9090/TCP,8080/TCP            24m   app.kubernetes.io/name=prometheus,operator.prometheus.io/name=monitoring-kube-prometheus-prometheus
-monitoring-kube-state-metrics             ClusterIP   10.233.30.82    <none>        8080/TCP                     24m   app.kubernetes.io/instance=monitoring,app.kubernetes.io/name=kube-state-metrics
-monitoring-prometheus-node-exporter       ClusterIP   10.233.31.126   <none>        9100/TCP                     24m   app.kubernetes.io/instance=monitoring,app.kubernetes.io/name=prometheus-node-exporter
-prometheus-operated                       ClusterIP   None            <none>        9090/TCP                     24m   app.kubernetes.io/name=prometheus
-glubuchik@glubuchik-X15-AT-22:~/обучение/Netology/devops-diplom-yandexcloud/03-monitoring$ kubectl --namespace monitoring port-forward $POD_NAME 3000:3000
-Forwarding from 127.0.0.1:3000 -> 3000
-Forwarding from [::1]:3000 -> 3000
-Handling connection for 3000
-Handling connection for 3000
-Handling connection for 3000
-Handling connection for 3000
-Handling connection for 3000
-Handling connection for 3000
-Handling connection for 3000
-```
-переходим в 
-http://127.0.0.1:3000
-
-```
-8. Настройка Prometheus как источника данных в Grafana
-После входа в Grafana:
-
-Добавьте источник данных Prometheus:
-
-Слева: Configuration → Data Sources → Add data source
-
-Выберите Prometheus
-
-URL: http://monitoring-kube-prometheus-prometheus:9090
-
-Нажмите Save & Test
-
-Импортируйте готовые дашборды:
-
-Слева: Dashboards → Import
-
-Вставьте ID дашбордов:
-
-Kubernetes: 315
-
-Node Exporter Full: 1860
-
-Prometheus 2.0: 3662
-
-Выберите Prometheus как источник данных
-```
-helm show values ingress-nginx/ingress-nginx > values.yaml
-
-[05-app/values.yaml](05-app/values.yaml)
-с
-controller:
-  hostNetwork: true
-  hostPort:
-    enabled: true
-    ports:
-      http: 80
-      https: 443
-  dnsPolicy: ClusterFirstWithHostNet
-  service:
-    type: ClusterIP
-    enableHttp: true
-
-
 
 Способ выполнения:
 1. Воспользоваться пакетом [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus), который уже включает в себя [Kubernetes оператор](https://operatorhub.io/) для [grafana](https://grafana.com/), [prometheus](https://prometheus.io/), [alertmanager](https://github.com/prometheus/alertmanager) и [node_exporter](https://github.com/prometheus/node_exporter). Альтернативный вариант - использовать набор helm чартов от [bitnami](https://github.com/bitnami/charts/tree/main/bitnami).
@@ -596,4 +140,535 @@ controller:
 5. Репозиторий с конфигурацией Kubernetes кластера.
 6. Ссылка на тестовое приложение и веб интерфейс Grafana с данными доступа.
 7. Все репозитории рекомендуется хранить на одном ресурсе (github, gitlab)
+
+
+
+
+
+# Выполнение диплома.
+
+## Подготовка сервисного аккаунта и бэкенда
+
+Подготовил отдельный манифест [01-Сloud infrastructure](01-Сloud%20infrastructure/)
+
+[Манифест 01-Сloud infrastructure/main.tf](01-Сloud%20infrastructure/main.tf):
+- Cоздает сервисный аккаунта, который будет использоваться для создания бакета, сети, подсетей и виртуальных машин
+- Выдает сервисному аккаунту роли: 
+   - storage.admin - для создания и управления бакета S3
+   - vpc.admin - для создания и управления сетями и подсетями
+   - compute.admin - для создания и управления ВМ
+   - viewer - для просмотра ресурсов
+- Создает S3 бакет для хранения бэкенда основного манифеста
+- Создает файл backend.conf в директории диплома.
+- Создает ключ авторизации Сервисного аккаунта в домашней директории, для его использования в основном манифесте 
+
+Для работы манифеста нужно задать переменные  `cloud_id` и `folder_id`, и указать как подключаться к облаку в `provider "yandex"` (service_account_key_file или token)
+
+С помощью переменной `bucket_name` можно изменить название S3 хранилища (нужно будет поменять название хранилища в [02-Claster/providers.tf](02-Claster/providers.tf))
+## Разворот приложения 
+
+Создана отдельная директория для основного проэкта [02-Claster](02-Claster/)
+
+Подключение к S3 настроено в [02-Claster/providers.tf](02-Claster/providers.tf)
+```
+  backend "s3" {
+    endpoints = {
+      s3 = "https://storage.yandexcloud.net"
+    }
+    bucket     = "glubuchik-diplom"
+    key        = "diplom/terraform.tfstate"
+    region     = "ru-central1"
+
+    skip_region_validation      = true
+    skip_credentials_validation = true
+    skip_requesting_account_id  = true
+    skip_s3_checksum            = true
+  }
+```
+так-же настроено использование ключа сервисного аккаунта созданного в [01-Сloud infrastructure]
+```
+provider "yandex" {
+  cloud_id                  = var.cloud_id
+  folder_id                 = var.folder_id
+  zone                      = var.default_zone
+  service_account_key_file  = file("~/.sa-diplom-key.json")
+}
+```
+Запускать terraform init нужно с указанием файла конфигурации для бэкенда
+```
+terraform init -backend-config=../backend.conf
+```
+Для работы манифеста нужно задать переменные `cloud_id`, `folder_id`, `grafana_admin_password`(пароль для входа в графану), `gitlab_runner_token`(токен для подключения ранера к Gitlab)
+
+
+Приложение разделил на 3 модуля:
+
+- [compute](02-Claster/modules/compute) - Модуль подготавливает сеть и ВМ для разорота K8S
+- [kubernetes](02-Claster/modules/kubernetes) - Разворачивает на подготовленных модулем [compute](02-Claster/modules/compute) виртуальных машинах K8S кластер
+- [applications](02-Claster/modules/applications) - Разворачивает в K8S кластере приложения (мониторинг, раннер для GitLab, приложение диплома)
+
+
+
+### Модуль [compute](02-Claster/modules/compute)
+
+- Создает сеть
+- Создает 2 подсети, можно изменить с помощью переменной
+```
+variable "vpc_subnet" {
+  type        = map(object({
+    name = string,
+    zone = string,
+    cidr = list(string)
+    }))
+  default     = {
+    subnet1  = {
+        name = "subnet1",
+        zone = "ru-central1-a",
+        cidr = ["192.168.10.0/24"]
+        },
+    subnet2 = {
+        name = "subnet2",
+        zone = "ru-central1-b",
+        cidr = ["192.168.20.0/24"]
+    }}
+  
+  description = "Конфигурация подсетей"
+}
+```
+- Создает Мастер ноды в подсети subnet1
+```
+variable "master_nodes" {
+  type = object({
+    count         = number
+    name_prefix   = string
+    platform_id   = string
+    cores         = number
+    memory        = number
+    core_fraction = number
+    disk_size     = number
+    disk_type     = string
+    image_family  = string
+    nat           = bool
+    preemptible   = bool
+  })
+  
+  default = {
+    count         = 1
+    name_prefix   = "master"
+    platform_id   = "standard-v1"
+    cores         = 2
+    memory        = 4
+    core_fraction = 100
+    disk_size     = 20
+    disk_type     = "network-ssd"
+    image_family  = "ubuntu-2204-lts"
+    nat           = true
+    preemptible   = true
+  }
+  
+  description = "Конфигурация мастер-нод"
+}
+```
+- Создает Воркер ноды в подсети subnet2
+```
+variable "worker_nodes" {
+  type = object({
+    count         = number
+    name_prefix   = string
+    platform_id   = string
+    cores         = number
+    memory        = number
+    core_fraction = number
+    disk_size     = number
+    disk_type     = string
+    image_family  = string
+    nat           = bool
+    preemptible   = bool
+  })
+  
+  default = {
+    count         = 2
+    name_prefix   = "worker"
+    platform_id   = "standard-v1"
+    cores         = 4
+    memory        = 8
+    core_fraction = 100
+    disk_size     = 30
+    disk_type     = "network-hdd"
+    image_family  = "ubuntu-2204-lts"
+    nat           = true
+    preemptible   = true
+  }
+  
+  description = "Конфигурация воркер-нод"
+}
+```
+- Создает инвентарь [hosts.yaml](02-Claster/modules/compute/inventory/hosts.yaml) для kubespray который будет использовать модуль [kubernetes](02-Claster/modules/kubernetes)
+- Если переменная update_hosts = true, внесет изменения в /etc/hosts (требуется запуск от SUDO или ввод пароля во время выполнения манифеста)
+добавит внешний IP мастера для хостов указанных в переменных 
+```
+variable "diplom_host" {
+  description = "Host для доступа к странице диплома"
+  type        = string
+  default     = "diplom.aglubuchik.com"
+}
+
+variable "grafana_host" {
+  description = "Host для доступа к странице мониторинга"
+  type        = string
+  default     = "grafana.aglubuchik.com"
+}
+```
+
+Для доступа к ВМ нужно указать пользователя и открытый ключ
+```
+variable "ssh_public_key" {
+  type        = string
+  default     = ""
+  description = <<-EOT
+    SSH публичный ключ для доступа к ВМ.
+    Может быть указан напрямую или через переменную ssh_public_key_file.
+    Формат: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
+    Приоритет: ssh_public_key > ssh_public_key_file
+  EOT
+  sensitive   = true
+  
+  validation {
+    condition = var.ssh_public_key == "" || can(regex("^ssh-(rsa|ed25519|dss|ecdsa-sha2-nistp(256|384|521)) AAAA[0-9A-Za-z+/]+[=]{0,3}( .*)?\\s*$", var.ssh_public_key))
+    error_message = "SSH публичный ключ должен быть в формате: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
+  }
+}
+
+variable "ssh_public_key_file" {
+  type        = string
+  default     = "~/.ssh/id_rsa.pub"
+  description = <<-EOT
+    Путь до файла с публичным SSH ключом.
+    Используется, если ssh_public_key не указан.
+    Поддерживаются абсолютные и относительные пути.
+    Может содержать ~ для домашней директории.
+  EOT
+  
+  validation {
+    condition     = var.ssh_public_key_file == "" || can(regex("^[~/a-zA-Z0-9_.\\-/]+$", var.ssh_public_key_file))
+    error_message = "Некорректный путь к файлу SSH ключа"
+  }
+}
+
+
+variable "ssh_username" {
+  type        = string
+  default     = "ubuntu"
+  description = "Имя пользователя для SSH"
+}
+```
+
+Можно настроить [cloud-init.yml](02-Claster/modules/compute/cloud-init.yml) для изменения настроек поднимаемых ВМ.
+
+### Модуль [kubernetes](02-Claster/modules/kubernetes)
+
+- Устанавливает python3 на машину, с которой запускается Terraform.
+- Создает виртуальное окружение в [kubernetes/venv](02-Claster/modules/kubernetes/venv)
+- Устанавливает через pip3 ansible
+- Клонирует https://github.com/kubernetes-sigs/kubespray.git в [kubernetes/kubespray](02-Claster/modules/kubernetes/kubespray)
+- Устанавливает зависимости kubespray
+- Переносит указанный в переменной инвентарь в kubespray/inventory/mycluster/hosts.yaml
+```
+variable "hosts_path" {
+  type        = string
+  default     = "../compute/inventory/hosts.yaml"
+  description = "Путь к файлу hosts.yaml"
+}
+```
+- Запускает 
+```
+ansible-playbook -i inventory/mycluster/hosts.yaml \
+  -u ${self.triggers.ssh_username} \
+  --become --become-user=root \
+  -e "kubeconfig_localhost=true" \
+  -e "download_timeout=120" \
+  cluster.yml \
+  --flush-cache
+```
+
+### Модуль [applications](02-Claster/modules/applications)
+
+(хотел сделать с помощью провайдеров, но пока так и не смог заставить провайдеры нормально брать конфиг для доступа к кластеру созданный модулем [kubernetes](02-Claster/modules/kubernetes))
+
+- Устанавливает через helm prometheus-community/kube-prometheus-stack.
+Можно указать пароль для доступа к Grafana
+```
+variable "grafana_admin_password" {
+  type        = string
+  sensitive   = true
+  default     = "4-o7blNIb95"
+  description = "Grafana admin password"
+}
+```
+
+- Устанавливает через helm ingress-nginx/ingress-nginx.
+Можно указать порт для доступа к Grafana
+```
+variable "ingress_http_nodeport" {
+  type        = number
+  default     = 30080
+  description = "NodePort for HTTP ingress"
+}
+```
+- Устанавливает через helm gitlab/gitlab-runner.
+Нужно указать токен для подключения ранера к Gitlab
+```
+variable "gitlab_runner_token" {
+  type        = string
+  description = "GitLab Runner registration token"
+}
+```
+Можно сконфигурировать Runner с помощью файла [runner/values.yaml](02-Claster/modules/applications/runner/values.yaml)
+
+- Скачивает из GitLab манифест диплома в зависимости от указанного тега
+и сохраняет его в [applications/diplom.yaml](02-Claster/modules/applications/diplom.yaml)
+(если тег не указан или равен latest, скачивает и запускает манифест из ветки main, если тег указан скачивается манифест из ветки с указанным тегом и использует для поднятия приложения образ с указанным тегом)
+- Устанавливает приложение из diplom.yaml
+
+
+
+## Приложение для диплома
+
+Создал станицу для демонстрации через nginx
+
+Создал dockerfile:
+```
+FROM nginx:1.29.0
+RUN rm -rf /usr/share/nginx/html/*
+COPY html/ /usr/share/nginx/html/
+EXPOSE 80
+```
+Создаю репозиторий для тестового приложения https://gitlab.com/artemglubuchik-group/artemglubuchik-project
+
+Авторизуюсь на hub.docker.com
+```
+docker login
+```
+
+Создаю образ из dockerfile
+```
+docker build . -t aglubuchik/diplom-application:0.1
+```
+
+Загружаю на docker hud
+```
+docker push aglubuchik/diplom-application:0.1
+```
+Ссылка на реестр Docker Hub: https://hub.docker.com/repository/docker/aglubuchik/diplom-application/general
+
+## Манифест для запуска приложения
+
+https://gitlab.com/artemglubuchik-group/artemglubuchik-project/-/blob/main/k8s/diplom.yaml?ref_type=heads
+
+Создает namespace
+```
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: diplom
+  labels:
+    name: diplom
+```
+Создает Deployment с двумя репликами приложения из подготовленного ранее образа
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diplom-app
+  namespace: diplom
+  labels:
+    app: diplom-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: diplom-app
+  template:
+    metadata:
+      labels:
+        app: diplom-app
+    spec:
+      containers:
+      - name: diplom-application
+        image: aglubuchik/diplom-application:0.1
+        resources:
+          requests:
+            cpu: "1"
+            memory: "200Mi"
+          limits:
+            cpu: "2"
+            memory: "400Mi"
+        ports:
+        - containerPort: 80
+```
+Создает сервис для приложения
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: diplom-app
+  namespace: diplom
+spec:
+  selector:
+    app: diplom-app
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+```
+Создает ингресы для доступа из интернета к приложению и мониторингу
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: diplom-ingress
+  namespace: diplom
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: diplom.aglubuchik.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: diplom-app
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: grafana.aglubuchik.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: monitoring-grafana
+            port:
+              number: 80
+```
+
+## Установка и настройка CI/CD
+### Настройка проэкта 
+В созданом [проэкте](https://gitlab.com/artemglubuchik-group/artemglubuchik-project)
+
+- Создаю ранер для GitLab (Settings -> CI/CD -> Runners) (Без него нужно подтвердить учетную запись, а это нельзя сделать без иностранного телефона и карты).
+   - Токен ранера сохраняю в переменную `gitlab_runner_token` `02-Claster/personal.auto.tfvars`
+![](img/Runner.png)
+
+- Создаю переменные для CI/CD (Settings -> CI/CD -> Variables)
+   - DOCKER_REGISTRY - где находятся образы (https://index.docker.io/v2/)
+   - DOCKER_USER - пользователь для доступа к DOCKER_REGISTRY, чтобы загрудать туда образы
+   - DOCKER_PASSWORD - пароль пользователя для доступа к DOCKER_REGISTRY
+   - IMAGE_NAME - название образа для диплома (diplom-application)
+   - KUBE_CONFIG - конфигурация для подключения к кластеру K8S созданая с помощью модуля [kubernetes](02-Claster/modules/kubernetes) (нужно преобразовать конфиг 02-Claster/modules/kubernetes/kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf в base64 и указать его в Value без пробелов и переноса строк)
+![](img/Variables.png)
+- Cоздаю [.gitlab-ci.yml](https://gitlab.com/DemoniumBlack/diplom-test-site/-/blob/main/.gitlab-ci.yml?ref_type=heads)
+```
+stages: # Этапы
+  - build # Сборка образа
+  - deploy # Разворот приложения в K8S
+
+variables: # Переменные
+  IMAGE_TAG_LATEST: latest
+  IMAGE_TAG_COMMIT: ${CI_COMMIT_SHORT_SHA}   # короткий хэш коммита
+  VERSION: ${CI_COMMIT_TAG}                  # тег коммита, если тег есть
+  NAMESPACE: "diplom"                        # namespace в Kubernetes
+  DEPLOYMENT_NAME: "diplom-app"              # имя деплоймента в Kubernetes
+
+# Сборка образа
+build:
+  stage: build
+  image: gcr.io/kaniko-project/executor:v1.24.0-debug # образ Kaniko (инструмент для сборки Docker-образов без Docker daemon)
+  tags: # теги для ранеров
+    - diplom
+  only: # запускается только для ветки main и тегов
+    - main
+    - tags
+  script:
+    - echo "Building Docker image..."
+   # Создаем файл для аутентификации в Docker Registry
+    - mkdir -p /kaniko/.docker
+    - |
+      cat > /kaniko/.docker/config.json << EOF
+      {
+        "auths": {
+          "https://index.docker.io/v1/": {
+            "auth": "$(echo -n "${DOCKER_USER}:${DOCKER_PASSWORD}" | base64 | tr -d '\n')"
+          },
+          "https://index.docker.io/v2/": {
+            "auth": "$(echo -n "${DOCKER_USER}:${DOCKER_PASSWORD}" | base64 | tr -d '\n')"
+          }
+        }
+      }
+      EOF
+   # Если VERSION не установлен (нет тега), используем хэш коммита
+    - if [ -z "$VERSION" ]; then VERSION=$IMAGE_TAG_COMMIT; fi
+   # Сборка и пушинг образа с двумя тегами:
+   # 1. С версией (тег коммита или хэш)
+    - |
+      /kaniko/executor \
+        --context ${CI_PROJECT_DIR} \
+        --dockerfile ${CI_PROJECT_DIR}/dockerfile \
+        --destination "${DOCKER_USER}/${IMAGE_NAME}:${VERSION}" \
+        --cache=true \
+        --verbosity=info
+   # 2. С тегом latest
+    - |
+      /kaniko/executor \
+        --context ${CI_PROJECT_DIR} \
+        --dockerfile ${CI_PROJECT_DIR}/dockerfile \
+        --destination "${DOCKER_USER}/${IMAGE_NAME}:${IMAGE_TAG_LATEST}" \
+        --cache=true \
+        --verbosity=info
+
+# Разворот приложения в K8S
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest # образ с установленным kubectl
+  tags: # теги для ранеров
+    - diplom 
+  only: # запускается только для ветки main и тегов
+    - main
+    - tags
+  script:
+    - echo "Deploying to Kubernetes..."
+    - echo $KUBE_CONFIG | base64 -d > kubeconfig
+    - export KUBECONFIG=kubeconfig
+    - kubectl apply -f k8s/
+   # Если VERSION не установлен (нет тега), используем хэш коммита
+    - if [ -z "$VERSION" ]; then VERSION=$IMAGE_TAG_COMMIT; fi
+   # Обновление образа в деплойменте
+    - kubectl --kubeconfig=kubeconfig set image deployment/${DEPLOYMENT_NAME} ${IMAGE_NAME}=${DOCKER_USER}/${IMAGE_NAME}:$VERSION --namespace=${NAMESPACE}
+   # Рестарт деплоймента для применения изменений
+    - kubectl --kubeconfig=kubeconfig rollout restart deployment/${DEPLOYMENT_NAME} --namespace=${NAMESPACE}
+   # Ожидание завершения
+    - kubectl --kubeconfig=kubeconfig rollout status deployment/${DEPLOYMENT_NAME} --namespace=${NAMESPACE}
+  when: on_success  # запускается только если build прошел успешно
+```
+
+
+
+
 
