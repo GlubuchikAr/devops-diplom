@@ -72,10 +72,6 @@ resource "null_resource" "run_kubespray" {
     ssh_username = var.ssh_username
   }
 
-  lifecycle {
-    ignore_changes = [triggers["timestamp"]]
-  }
-
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
     command = <<-EOT

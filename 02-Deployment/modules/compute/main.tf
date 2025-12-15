@@ -24,7 +24,8 @@ resource "yandex_vpc_subnet" "subnet2" {
 data "template_file" "cloudinit" {
  template = file("${path.module}/cloud-init.yml")
  vars = {
-   ssh_public_key = local.ssh_public_key
+   ssh_public_key = var.ssh_public_key
+   ssh_username = var.ssh_username
  }
 }
 
@@ -157,6 +158,8 @@ resource "local_file" "hosts_cfg_kubespray" {
 
 # Обновление записей в /etc/hosts
 resource "null_resource" "update_hosts" {
+  count = var.update_hosts ? 1 : 0
+
   depends_on = [
     local_file.hosts_cfg_kubespray
   ]

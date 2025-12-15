@@ -1,35 +1,9 @@
-# Основные параметры облака
-variable "cloud_id" {
-  type        = string
-  description = "ID облака Yandex Cloud"
-  validation {
-    condition     = length(var.cloud_id) > 0
-    error_message = "Cloud ID не может быть пустым"
-  }
-}
+### Модуль подготавливает сеть и ВМ для разорота K8S
 
-variable "folder_id" {
-  type        = string
-  description = "ID каталога Yandex Cloud"
-  validation {
-    condition     = length(var.folder_id) > 0
-    error_message = "Folder ID не может быть пустым"
-  }
-}
 
-variable "default_zone" {
-  type        = string
-  default     = "ru-central1-a"
-  description = "Зона по умолчанию"
-}
-
-# Сетевые настройки
-variable "vpc_name" {
-  type        = string
-  default     = "develop"
-  description = "Имя VPC сети"
-}
-
+- Создает сеть
+- Создает 2 подсети, можно изменить с помощью переменной
+```
 variable "vpc_subnet" {
   type        = map(object({
     name = string,
@@ -50,8 +24,9 @@ variable "vpc_subnet" {
   
   description = "Конфигурация подсетей"
 }
-
-# Конфигурация ВМ
+```
+- Создает Мастер ноды в подсети subnet1
+```
 variable "master_nodes" {
   type = object({
     count         = number
@@ -83,7 +58,9 @@ variable "master_nodes" {
   
   description = "Конфигурация мастер-нод"
 }
-
+```
+- Создает Воркер ноды в подсети subnet2
+```
 variable "worker_nodes" {
   type = object({
     count         = number
@@ -115,45 +92,11 @@ variable "worker_nodes" {
   
   description = "Конфигурация воркер-нод"
 }
-
-# SSH доступ
-variable "ssh_public_key" {
-  type        = string
-  default     = ""
-  description = "SSH публичный ключ для доступа к ВМ."
-  sensitive   = true
-  
-  validation {
-    condition = var.ssh_public_key == "" || can(regex("^ssh-(rsa|ed25519|dss|ecdsa-sha2-nistp(256|384|521)) AAAA[0-9A-Za-z+/]+[=]{0,3}( .*)?\\s*$", var.ssh_public_key))
-    error_message = "SSH публичный ключ должен быть в формате: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
-  }
-}
-
-variable "ssh_username" {
-  type        = string
-  default     = "ubuntu"
-  description = "Имя пользователя для SSH"
-}
-
-# Теги и метки
-variable "common_tags" {
-  type        = map(string)
-  default     = {}
-  description = "Общие теги для всех ресурсов"
-}
-
-variable "environment" {
-  type        = string
-  default     = "development"
-  description = "Окружение (development/staging/production)"
-}
-
-variable "update_hosts" {
-  description = "Нужно ли добавить записи в /etc/hosts, Нужны права sudo"
-  type        = bool
-  default     = false
-}
-
+```
+- Создает инвентарь hosts.yaml для kubespray который будет использовать модуль [kubernetes](../kubernetes)
+- Если переменная update_hosts = true, внесет изменения в /etc/hosts (требуется запуск от SUDO или ввод пароля во время выполнения манифеста)
+добавит внешний IP мастера для хостов указанных в переменных 
+```
 variable "diplom_host" {
   description = "Host для доступа к странице диплома"
   type        = string
@@ -165,5 +108,32 @@ variable "grafana_host" {
   type        = string
   default     = "grafana.aglubuchik.com"
 }
+```
 
+Для доступа к ВМ нужно указать пользователя и открытый ключ
+```
+variable "ssh_public_key" {
+  type        = string
+  default     = ""
+  description = <<-EOT
+    SSH публичный ключ для доступа к ВМ.
+    Может быть указан напрямую или через переменную ssh_public_key_file.
+    Формат: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
+    Приоритет: ssh_public_key > ssh_public_key_file
+  EOT
+  sensitive   = true
+  
+  validation {
+    condition     = var.ssh_public_key == "" || can(regex("^ssh-(rsa|ed25519|dss|ecdsa-sha2-nistp(256|384|521)) AAAA[0-9A-Za-z+/]+[=]{0,3}( .*)?$", var.ssh_public_key))
+    error_message = "SSH публичный ключ должен быть в формате: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
+  }
+}
 
+variable "ssh_username" {
+  type        = string
+  default     = "ubuntu"
+  description = "Имя пользователя для SSH"
+}
+```
+
+Можно настроить [cloud-init.yml](cloud-init.yml) для изменения настроек поднимаемых ВМ

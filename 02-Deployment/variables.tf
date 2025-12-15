@@ -51,7 +51,6 @@ variable "vpc_subnet" {
   description = "Конфигурация подсетей"
 }
 
-# Конфигурация ВМ
 variable "master_nodes" {
   type = object({
     count         = number
@@ -65,7 +64,6 @@ variable "master_nodes" {
     image_family  = string
     nat           = bool
     preemptible   = bool
-    zones         = list(string)
   })
   
   default = {
@@ -80,7 +78,6 @@ variable "master_nodes" {
     image_family  = "ubuntu-2204-lts"
     nat           = true
     preemptible   = true
-    zones         = ["ru-central1-a"]
   }
   
   description = "Конфигурация мастер-нод"
@@ -99,7 +96,6 @@ variable "worker_nodes" {
     image_family  = string
     nat           = bool
     preemptible   = bool
-    zones         = list(string)
   })
   
   default = {
@@ -112,9 +108,8 @@ variable "worker_nodes" {
     disk_size     = 30
     disk_type     = "network-hdd"
     image_family  = "ubuntu-2204-lts"
-    nat           = false
+    nat           = true
     preemptible   = true
-    zones         = ["ru-central1-a", "ru-central1-b"]
   }
   
   description = "Конфигурация воркер-нод"
@@ -133,14 +128,14 @@ variable "ssh_public_key" {
   sensitive   = true
   
   validation {
-    condition     = var.ssh_public_key == "" || can(regex("^ssh-(rsa|ed25519|dss|ecdsa-sha2-nistp(256|384|521)) AAAA[0-9A-Za-z+/]+[=]{0,3}( .*)?$", var.ssh_public_key))
+    condition = var.ssh_public_key == "" || can(regex("^ssh-(rsa|ed25519|dss|ecdsa-sha2-nistp(256|384|521)) AAAA[0-9A-Za-z+/]+[=]{0,3}( .*)?\\s*$", var.ssh_public_key))
     error_message = "SSH публичный ключ должен быть в формате: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
   }
 }
 
 variable "ssh_public_key_file" {
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
+  default     = ""
   description = <<-EOT
     Путь до файла с публичным SSH ключом.
     Используется, если ssh_public_key не указан.
@@ -232,7 +227,13 @@ variable "gitlab_runner_token" {
 
 variable "grafana_admin_password" {
   type        = string
-  sensitive   = true 
-  description = "Admin password for Grafana"
+  sensitive   = true
+  default     = "4-o7blNIb95"
+  description = "Grafana admin password"
 }
 
+variable "kubeconfig_path" {
+  type        = string
+  default     = ""
+  description = "Файл конфигурации для доступа к K8S кластера"
+}

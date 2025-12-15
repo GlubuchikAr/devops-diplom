@@ -38,6 +38,10 @@
 
 1. Создайте сервисный аккаунт, который будет в дальнейшем использоваться Terraform для работы с инфраструктурой с необходимыми и достаточными правами. Не стоит использовать права суперпользователя
 
+2. Подготовьте [backend](https://developer.hashicorp.com/terraform/language/backend) для Terraform:  
+   а. Рекомендуемый вариант: S3 bucket в созданном ЯО аккаунте(создание бакета через TF)
+   б. Альтернативный вариант:  [Terraform Cloud](https://app.terraform.io/)
+
 #### Выполнено в [01-terraform/main.tf](01-terraform/main.tf)
 ```
 # Создание сервисного аккаунта для Terraform
@@ -60,10 +64,6 @@ resource "yandex_iam_service_account_static_access_key" "service-keys" {
   description        = "Static access keys"
 }
 ```
-
-2. Подготовьте [backend](https://developer.hashicorp.com/terraform/language/backend) для Terraform:  
-   а. Рекомендуемый вариант: S3 bucket в созданном ЯО аккаунте(создание бакета через TF)
-   б. Альтернативный вариант:  [Terraform Cloud](https://app.terraform.io/)
 
 #### Выполнено в [01-terraform/main.tf](01-terraform/main.tf)
 ```

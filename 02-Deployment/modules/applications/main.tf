@@ -1,12 +1,3 @@
-terraform {
-  required_providers {
-    kubectl = {
-      source  = "gavinbunney/kubectl"
-      version = "~> 1.14"
-    }
-  }
-}
-
 # Ожидание готовности кластера
 resource "null_resource" "wait_for_cluster" {
   provisioner "local-exec" {
@@ -24,7 +15,7 @@ resource "null_resource" "run_helm_prometheus" {
       helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
         --create-namespace \
         --namespace monitoring \
-        --set grafana.adminPassword="4-o7blNIb95"
+        --set grafana.adminPassword="${var.grafana_admin_password}"
     EOT
   }
 }
@@ -41,25 +32,16 @@ resource "null_resource" "ingress-nginx" {
       helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
         --namespace ingress-nginx \
         --create-namespace \
-        --set controller.service.nodePorts.http=30080 \
-        --set controller.replicaCount=2
+        --set controller.service.nodePorts.http=${var.ingress_http_nodeport} \
+        --set controller.replicaCount=${var.ingress_replicaCount}
     EOT
   }
-}
-
-resource "local_file" "gitlab_runner_values" {
-  content = yamlencode(local.gitlab_runner_values)
-  filename = "${path.module}/gitlab-runner-values.yaml"
 }
 
 resource "null_resource" "gitlab-runner" {
   depends_on = [
     null_resource.ingress-nginx
   ]
-  
-  triggers = {
-    gitlab_runner_values = sha256(jsonencode(local.gitlab_runner_values))
-  }
   provisioner "local-exec" {
     command = <<-EOT
       helm repo add gitlab https://charts.gitlab.io
@@ -67,13 +49,8 @@ resource "null_resource" "gitlab-runner" {
       helm upgrade --install gitlab-runner gitlab/gitlab-runner \
         --namespace gitlab-runner \
         --create-namespace \
-        --version 0.70.0 \
-        --set revisionHistoryLimit=3 \
         --set gitlabUrl="${var.gitlab_url}" \
         --set runnerRegistrationToken="${var.gitlab_runner_token}" \
-        --set rbac.create=true \
-        --set serviceAccount.create=true \
-        --set serviceAccount.name=gitlab-runner \
         -f ${path.module}/runner/values.yaml
     EOT
   }
@@ -131,6 +108,15 @@ resource "null_resource" "diplom-app" {
   }
 }
 
+# terraform {
+#   required_providers {
+#     kubectl = {
+#       source  = "gavinbunney/kubectl"
+#       version = "~> 1.14"
+#     }
+#   }
+# }
+
 # # Установка kube-prometheus-stack для мониторинга
 # resource "helm_release" "prometheus_stack" {
 #   depends_on = [null_resource.wait_for_cluster]
@@ -176,6 +162,11 @@ resource "null_resource" "diplom-app" {
 #   values = [
 #     yamlencode(local.gitlab_runner_values)
 #   ]
+# }
+
+# resource "local_file" "gitlab_runner_values" {
+#   content = yamlencode(local.gitlab_runner_values)
+#   filename = "${path.module}/gitlab-runner-values.yaml"
 # }
 
 # # 4. Развертывание приложения

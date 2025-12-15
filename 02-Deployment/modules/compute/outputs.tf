@@ -11,10 +11,10 @@ output "ssh_connection_strings" {
 output "ssh_connection_details" {
   value = {
     username    = var.ssh_username
-    key_type    = try(split(" ", local.ssh_public_key)[0], "unknown")
+    key_type    = try(split(" ", var.ssh_public_key)[0], "unknown")
     key_fingerprint = try(
       # Генерация fingerprint из публичного ключа
-      base64sha256(local.ssh_public_key),
+      base64sha256(var.ssh_public_key),
       "unknown"
     )
   }
