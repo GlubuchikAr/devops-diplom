@@ -2,9 +2,9 @@
 
 
 - Устанавливает python3 на машину, с которой запускается Terraform.
-- Создает виртуальное окружение в [kubernetes/venv](02-Claster/modules/kubernetes/venv)
+- Создает виртуальное окружение в [kubernetes/venv](02-Cluster/modules/kubernetes/venv)
 - Устанавливает через pip3 ansible
-- Клонирует https://github.com/kubernetes-sigs/kubespray.git в [kubernetes/kubespray](02-Claster/modules/kubernetes/kubespray)
+- Клонирует https://github.com/kubernetes-sigs/kubespray.git в [kubernetes/kubespray](02-Cluster/modules/kubernetes/kubespray)
 - Устанавливает зависимости kubespray
 - Переносит указанный в переменной инвентарь в kubespray/inventory/mycluster/hosts.yaml
 ```

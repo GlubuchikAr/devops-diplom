@@ -1,0 +1,34 @@
+all:
+  hosts:
+    diplom-development-master-1:
+      ansible_host: 51.250.70.104
+      ip: 192.168.10.4
+      access_ip: 51.250.70.104
+      ansible_user: ubuntu
+    diplom-development-worker-1:
+      ansible_host: 89.169.190.155
+      ip: 192.168.20.5
+      access_ip: 89.169.190.155
+      ansible_user: ubuntu
+    diplom-development-worker-2:
+      ansible_host: 89.169.175.209
+      ip: 192.168.20.12
+      access_ip: 89.169.175.209
+      ansible_user: ubuntu
+  children:
+    kube_control_plane:
+      hosts:
+        diplom-development-master-1:
+    kube_node:
+      hosts:
+        diplom-development-worker-1:
+        diplom-development-worker-2:
+    etcd:
+      hosts:
+        diplom-development-master-1:
+    k8s_cluster:
+      children:
+        kube_control_plane:
+        kube_node:
+    calico_rr:
+      hosts: {}

@@ -20,7 +20,7 @@ variable "prometheus_values" {
 ```
 
 - Устанавливает через helm ingress-nginx/ingress-nginx.
-Можно указать порт для доступа к Grafana
+Можно указать порт для доступа к Grafana и диплому
 ```
 variable "ingress_http_nodeport" {
   type        = number

@@ -1,6 +1,6 @@
 locals {
   # Общие настройки
-  kubeconfig_path = var.kubeconfig_path != "" ? var.kubeconfig_path : "${path.module}/../02-Claster/modules/kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf"
+  kubeconfig_path = var.kubeconfig_path != "" ? var.kubeconfig_path : "${path.module}/../02-Cluster/modules/kubernetes/kubespray/inventory/mycluster/artifacts/admin.conf"
   
   # Определяем, нужно ли использовать main или конкретный тег
   use_main_branch = var.diplom_tag == "" || var.diplom_tag == "latest"
